@@ -176,6 +176,8 @@ set_property(TARGET ${PROJECT_NAME}-${SUB_PROJECT} PROPERTY C_STANDARD 11)
 
 target_link_libraries(${PROJECT_NAME}-${SUB_PROJECT} m)
 
+
+if(NOT BOARD STREQUAL Simul) 
 #---------------------------------------------------------------------------------------
 # Debugging and Binutils
 #---------------------------------------------------------------------------------------
@@ -194,3 +196,4 @@ print_section_sizes(${PROJECT_NAME}-${SUB_PROJECT})
 # Create output in hex and binary format
 create_bin_output(${PROJECT_NAME}-${SUB_PROJECT})
 create_hex_output(${PROJECT_NAME}-${SUB_PROJECT})
+endif()
