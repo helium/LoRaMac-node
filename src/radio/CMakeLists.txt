@@ -23,7 +23,9 @@ cmake_minimum_required(VERSION 3.6)
 #---------------------------------------------------------------------------------------
 
 # Allow switching of radios
-set(RADIO_LIST sx1272 sx1276 sx126x lr1110)
+
+set(RADIO_LIST sx1272 sx1276 sx126x lr1110 simul)
+
 set(RADIO sx1272 CACHE STRING "Default radio is sx1272")
 set_property(CACHE RADIO PROPERTY STRINGS ${RADIO_LIST})
 set_property(CACHE RADIO PROPERTY ADVANCED)
@@ -37,6 +39,7 @@ foreach( R ${RADIO_LIST} )
         list(APPEND ${PROJECT_NAME}_SOURCES
             ${CMAKE_CURRENT_SOURCE_DIR}/${RADIO}/radio.c
         )
+        if(${R} MATCHES lr1110)
         list(APPEND ${PROJECT_NAME}_SOURCES
             ${CMAKE_CURRENT_SOURCE_DIR}/${RADIO}/${RADIO}_driver/src/lr1110_bootloader.c
             ${CMAKE_CURRENT_SOURCE_DIR}/${RADIO}/${RADIO}_driver/src/lr1110_crypto_engine.c
@@ -46,6 +49,7 @@ foreach( R ${RADIO_LIST} )
             ${CMAKE_CURRENT_SOURCE_DIR}/${RADIO}/${RADIO}_driver/src/lr1110_system.c
             ${CMAKE_CURRENT_SOURCE_DIR}/${RADIO}/${RADIO}_driver/src/lr1110_wifi.c
             )
+        endif()
     else()
         file(GLOB ${PROJECT_NAME}_SOURCES
             ${CMAKE_CURRENT_SOURCE_DIR}/${RADIO}/*.c
@@ -70,12 +74,20 @@ foreach( R ${RADIO_LIST} )
     endif()
 endforeach()
 
+if(RADIO STREQUAL simul) 
+target_include_directories(${PROJECT_NAME} PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/simul
+    $<TARGET_PROPERTY:board,INTERFACE_INCLUDE_DIRECTORIES>
+)
+else()
 target_include_directories(${PROJECT_NAME} PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${${PROJECT_NAME}_INCLUDES}
     $<TARGET_PROPERTY:board,INTERFACE_INCLUDE_DIRECTORIES>
     $<TARGET_PROPERTY:system,INTERFACE_INCLUDE_DIRECTORIES>
 )
+endif()
 
 ## TEMPORALLY WORKAROUND to allow radio debugging.
 ## It will be removed with the introduction of a debug-board interface.
