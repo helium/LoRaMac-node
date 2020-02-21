@@ -4527,6 +4527,7 @@ LoRaMacStatus_t LoRaMacMcChannelSetupRxParams( AddressIdentifier_t groupID, McRx
     return LORAMAC_STATUS_OK;
 }
 
+
 LoRaMacStatus_t LoRaMacMlmeRequest( MlmeReq_t* mlmeRequest )
 {
     LoRaMacStatus_t status = LORAMAC_STATUS_SERVICE_UNKNOWN;
@@ -4538,16 +4539,19 @@ LoRaMacStatus_t LoRaMacMlmeRequest( MlmeReq_t* mlmeRequest )
         return LORAMAC_STATUS_PARAMETER_INVALID;
     }
     if( LoRaMacIsBusy( ) == true )
-    {
+    {   printf("1!\r\n");
+
         return LORAMAC_STATUS_BUSY;
     }
     if( LoRaMacConfirmQueueIsFull( ) == true )
-    {
+    {   printf("2!\r\n");
+
         return LORAMAC_STATUS_BUSY;
     }
 
     if( LoRaMacConfirmQueueGetCnt( ) == 0 )
-    {
+    {   printf("3!\r\n");
+
         memset1( ( uint8_t* ) &MacCtx.MlmeConfirm, 0, sizeof( MacCtx.MlmeConfirm ) );
     }
     MacCtx.MlmeConfirm.Status = LORAMAC_EVENT_INFO_STATUS_ERROR;
@@ -4565,6 +4569,7 @@ LoRaMacStatus_t LoRaMacMlmeRequest( MlmeReq_t* mlmeRequest )
             {
                 return LORAMAC_STATUS_BUSY;
             }
+   printf("4!\r\n");
 
             ResetMacParameters( );
 
