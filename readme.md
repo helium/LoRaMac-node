@@ -17,14 +17,22 @@
 
 ## Simulator Branch Notes
 
-To build, 
+To build for US
 
 ```
 LoRaMAC-node/$ mkdir build
 LoRaMAC-node/$ cd build
-LoRaMAC-node/build$ cmake -DAPPLICATION="LoRaMac" -DSUB_PROJECT="classA" -DBOARD="Simul" -DRADIO="radio-simul" ..
+LoRaMAC-node/build$ cmake -DAPPLICATION="LoRaMac" -DSUB_PROJECT="classA" -DBOARD="Simul" -DRADIO="radio-simul"  -DACTIVE_REGION="LORAMAC_REGION_US915" ..
 LoRaMAC-node/build$ make
+```
 
+To build for EU
+
+```
+LoRaMAC-node/$ mkdir build
+LoRaMAC-node/$ cd build
+LoRaMAC-node/build$ cmake -DAPPLICATION="LoRaMac" -DSUB_PROJECT="classA" -DBOARD="Simul" -DRADIO="radio-simul"  -DACTIVE_REGION="LORAMAC_REGION_EU868" ..
+LoRaMAC-node/build$ make
 ```
 
 To run:
