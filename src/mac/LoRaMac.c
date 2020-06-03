@@ -45,7 +45,7 @@
 #include "LoRaMacAdr.h"
 
 #include "LoRaMac.h"
-
+#include <stdio.h>
 /*!
  * Maximum PHY layer payload size
  */
@@ -1168,7 +1168,7 @@ static void ProcessRadioRxDone( void )
                 PrepareRxDoneAbort( );
                 return;
             }
-
+            printf("Downlink Frame has been Unsecured!\r\n");
             // Frame is valid
             MacCtx.McpsIndication.Status = LORAMAC_EVENT_INFO_STATUS_OK;
             MacCtx.McpsIndication.Multicast = multicast;
@@ -4458,6 +4458,7 @@ LoRaMacStatus_t LoRaMacMcChannelSetupRxParams( AddressIdentifier_t groupID, McRx
     return LORAMAC_STATUS_OK;
 }
 
+
 LoRaMacStatus_t LoRaMacMlmeRequest( MlmeReq_t* mlmeRequest )
 {
     LoRaMacStatus_t status = LORAMAC_STATUS_SERVICE_UNKNOWN;
@@ -4473,12 +4474,12 @@ LoRaMacStatus_t LoRaMacMlmeRequest( MlmeReq_t* mlmeRequest )
         return LORAMAC_STATUS_BUSY;
     }
     if( LoRaMacConfirmQueueIsFull( ) == true )
-    {
+    {   
         return LORAMAC_STATUS_BUSY;
     }
 
     if( LoRaMacConfirmQueueGetCnt( ) == 0 )
-    {
+    {   
         memset1( ( uint8_t* ) &MacCtx.MlmeConfirm, 0, sizeof( MacCtx.MlmeConfirm ) );
     }
     MacCtx.MlmeConfirm.Status = LORAMAC_EVENT_INFO_STATUS_ERROR;

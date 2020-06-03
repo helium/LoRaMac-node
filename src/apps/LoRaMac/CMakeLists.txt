@@ -32,7 +32,7 @@ set(ACTIVE_REGION_LIST   LORAMAC_REGION_EU868 LORAMAC_REGION_US915 LORAMAC_REGIO
     LORAMAC_REGION_EU433 LORAMAC_REGION_AU915 LORAMAC_REGION_AS923 LORAMAC_REGION_CN470
     LORAMAC_REGION_KR920 LORAMAC_REGION_IN865 LORAMAC_REGION_RU864
 )
-set(ACTIVE_REGION LORAMAC_REGION_EU868 CACHE STRING "Default active region is EU868")
+set(ACTIVE_REGION LORAMAC_REGION_US915 CACHE STRING "Default active region is EU868")
 set_property(CACHE ACTIVE_REGION PROPERTY STRINGS ${ACTIVE_REGION_LIST})
 
 if((SUB_PROJECT STREQUAL classB OR SUB_PROJECT STREQUAL periodic-uplink-lpp OR SUB_PROJECT STREQUAL fuota-test-01) AND NOT CLASSB_ENABLED )
@@ -122,8 +122,19 @@ endif()
 #---------------------------------------------------------------------------------------
 # Application
 #---------------------------------------------------------------------------------------
-file(GLOB ${PROJECT_NAME}_SOURCES "${CMAKE_CURRENT_LIST_DIR}/${SUB_PROJECT}/${BOARD}/*.c")
+file(GLOB ${PROJECT_NAME}_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/${SUB_PROJECT}/${BOARD}/*.c")
 
+if(BOARD STREQUAL Simul) 
+add_executable(${PROJECT_NAME}-${SUB_PROJECT}
+                            ${${PROJECT_NAME}_COMMON}
+                            ${${PROJECT_NAME}_LMH}
+                            ${${PROJECT_NAME}_LMHP}
+                            ${${PROJECT_NAME}_SOURCES}
+                            $<TARGET_OBJECTS:mac>
+                            $<TARGET_OBJECTS:radio>
+                            $<TARGET_OBJECTS:${BOARD}>
+)
+else()
 add_executable(${PROJECT_NAME}-${SUB_PROJECT}
                             ${${PROJECT_NAME}_COMMON}
                             ${${PROJECT_NAME}_LMH}
@@ -135,6 +146,7 @@ add_executable(${PROJECT_NAME}-${SUB_PROJECT}
                             $<TARGET_OBJECTS:peripherals>
                             $<TARGET_OBJECTS:${BOARD}>
 )
+endif()
 
 target_compile_definitions(${PROJECT_NAME}-${SUB_PROJECT} PRIVATE $<$<BOOL:${CLASSB_ENABLED}>:LORAMAC_CLASSB_ENABLED>)
 target_compile_definitions(${PROJECT_NAME}-${SUB_PROJECT} PRIVATE ACTIVE_REGION=${ACTIVE_REGION})
@@ -157,12 +169,16 @@ target_include_directories(${PROJECT_NAME}-${SUB_PROJECT} PUBLIC
 
 set_property(TARGET ${PROJECT_NAME}-${SUB_PROJECT} PROPERTY C_STANDARD 11)
 
-target_link_libraries(${PROJECT_NAME}-${SUB_PROJECT} m)
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+    # link to linux timer
+    find_library(LIBRT rt)
+    target_link_libraries(${PROJECT_NAME}-${SUB_PROJECT} m ${LIBRT})
+endif()
 
+if(NOT BOARD STREQUAL Simul) 
 #---------------------------------------------------------------------------------------
 # Debugging and Binutils
 #---------------------------------------------------------------------------------------
-
 include(gdb-helper)
 include(binutils-arm-none-eabi)
 
@@ -174,6 +190,8 @@ generate_vscode_launch_openocd(${PROJECT_NAME}-${SUB_PROJECT})
 # Print section sizes of target
 print_section_sizes(${PROJECT_NAME}-${SUB_PROJECT})
 
+
 # Create output in hex and binary format
 create_bin_output(${PROJECT_NAME}-${SUB_PROJECT})
 create_hex_output(${PROJECT_NAME}-${SUB_PROJECT})
+endif()

@@ -1,7 +1,7 @@
 /*!
  * \file      main.c
  *
- * \brief     LoRaMac classA device implementation
+ * \brief     LoRaMac classC device implementation
  *
  * \copyright Revised BSD License, see section \ref LICENSE.
  *
@@ -21,12 +21,11 @@
  * \author    Gregory Cristian ( Semtech )
  */
 
-/*! \file classA/B-L072Z-LRWAN1/main.c */
+/*! \file classC/B-L072Z-LRWAN1/main.c */
 
 #include <stdio.h>
 #include "utilities.h"
 #include "board.h"
-#include "gpio.h"
 #include "LoRaMac.h"
 #include "Commissioning.h"
 #include "NvmCtxMgmt.h"
@@ -85,6 +84,8 @@
  */
 #define LORAWAN_APP_PORT                            2
 
+#define OVER_THE_AIR_ACTIVATION 1
+
 #if( ABP_ACTIVATION_LRWAN_VERSION == ABP_ACTIVATION_LRWAN_VERSION_V10x )
 static uint8_t GenAppKey[] = LORAWAN_GEN_APP_KEY;
 #else
@@ -131,9 +132,6 @@ static uint8_t AppDataBuffer[LORAWAN_APP_DATA_MAX_SIZE];
  * Indicates if the node is sending confirmed or unconfirmed messages
  */
 static uint8_t IsTxConfirmed = LORAWAN_CONFIRMED_MSG_ON;
-
-#define CONFIRM_EVERY 2
-static uint8_t TxConfirmCount = 0;
 
 /*!
  * Defines the application data transmission duty cycle
@@ -229,13 +227,6 @@ LoRaMacHandlerAppData_t AppData =
     .BufferSize = 0,
     .Port = 0
 };
-
-/*!
- * LED GPIO pins objects
- */
-extern Gpio_t Led1; // Tx
-extern Gpio_t Led3; // Rx
-extern Gpio_t Led4; // App
 
 /*!
  * MAC status strings
@@ -398,10 +389,9 @@ static bool SendFrame( void )
 {
     McpsReq_t mcpsReq;
     LoRaMacTxInfo_t txInfo;
-    printf("AM I EVEN HERE!!???\r\n");
+
     if( LoRaMacQueryTxPossible( AppDataSize, &txInfo ) != LORAMAC_STATUS_OK )
     {
-        printf("Sending empty frame\r\n");
         // Send empty frame in order to flush MAC commands
         mcpsReq.Type = MCPS_UNCONFIRMED;
         mcpsReq.Req.Unconfirmed.fBuffer = NULL;
@@ -410,9 +400,8 @@ static bool SendFrame( void )
     }
     else
     {
-        if( IsTxConfirmed == false || ++TxConfirmCount != CONFIRM_EVERY)
+        if( IsTxConfirmed == false )
         {
-            printf("Always Unconfirmed\r\n");
             mcpsReq.Type = MCPS_UNCONFIRMED;
             mcpsReq.Req.Unconfirmed.fPort = AppPort;
             mcpsReq.Req.Unconfirmed.fBuffer = AppDataBuffer;
@@ -427,7 +416,6 @@ static bool SendFrame( void )
             mcpsReq.Req.Confirmed.fBufferSize = AppDataSize;
             mcpsReq.Req.Confirmed.NbTrials = 8;
             mcpsReq.Req.Confirmed.Datarate = LORAWAN_DEFAULT_DATARATE;
-            TxConfirmCount = 0;
         }
     }
 
@@ -454,6 +442,8 @@ static bool SendFrame( void )
  */
 static void OnTxNextPacketTimerEvent( void* context )
 {
+
+    printf("I fired!\r\n");
     MibRequestConfirm_t mibReq;
     LoRaMacStatus_t status;
 
@@ -477,25 +467,6 @@ static void OnTxNextPacketTimerEvent( void* context )
     }
 }
 
-/*!
- * \brief Function executed on Led 1 Timeout event
- */
-static void OnLed1TimerEvent( void* context )
-{
-    TimerStop( &Led1Timer );
-    // Switch LED 1 OFF
-    GpioWrite( &Led1, 0 );
-}
-
-/*!
- * \brief Function executed on Led 3 Timeout event
- */
-static void OnLed3TimerEvent( void* context )
-{
-    TimerStop( &Led3Timer );
-    // Switch LED 3 OFF
-    GpioWrite( &Led3, 0 );
-}
 
 /*!
  * \brief   MCPS-Confirm event function
@@ -536,9 +507,6 @@ static void McpsConfirm( McpsConfirm_t *mcpsConfirm )
                 break;
         }
 
-        // Switch LED 1 ON
-        GpioWrite( &Led1, 1 );
-        TimerStart( &Led1Timer );
     }
     MibRequestConfirm_t mibGet;
     MibRequestConfirm_t mibReq;
@@ -629,6 +597,7 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
         }
         case MCPS_CONFIRMED:
         {
+            printf("Confirmed");
             break;
         }
         case MCPS_PROPRIETARY:
@@ -666,15 +635,12 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
 
     if( mcpsIndication->RxData == true )
     {
+        printf("Hit Rx area\r\n");
         switch( mcpsIndication->Port )
         {
         case 1: // The application LED can be controlled on port 1 or 2
         case 2:
-            if( mcpsIndication->BufferSize == 1 )
-            {
-                AppLedStateOn = mcpsIndication->Buffer[0] & 0x01;
-                GpioWrite( &Led4, ( ( AppLedStateOn & 0x01 ) != 0 ) ? 1 : 0 );
-            }
+            // ignore application LED
             break;
         case 224:
             if( ComplianceTest.Running == false )
@@ -822,10 +788,6 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
         }
     }
 
-    // Switch LED 3 ON for each received downlink
-    GpioWrite( &Led3, 1 );
-    TimerStart( &Led3Timer );
-
     const char *slotStrings[] = { "1", "2", "C", "C Multicast", "B Ping-Slot", "B Multicast Ping-Slot" };
 
     printf( "\r\n###### ===== DOWNLINK FRAME %lu ==== ######\r\n", mcpsIndication->DownLinkCounter );
@@ -836,7 +798,7 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
 
     if( mcpsIndication->BufferSize != 0 )
     {
-        printf( "RX DATA     : \r\n" );
+        printf( "RX DATA     :" );
         PrintHexBuffer( mcpsIndication->Buffer, mcpsIndication->BufferSize );
     }
 
@@ -954,9 +916,7 @@ int main( void )
     uint8_t devEui[] = LORAWAN_DEVICE_EUI;
     uint8_t joinEui[] = LORAWAN_JOIN_EUI;
 
-    BoardInitMcu( );
-    BoardInitPeriph( );
-
+  
     macPrimitives.MacMcpsConfirm = McpsConfirm;
     macPrimitives.MacMcpsIndication = McpsIndication;
     macPrimitives.MacMlmeConfirm = MlmeConfirm;
@@ -978,15 +938,17 @@ int main( void )
 
     DeviceState = DEVICE_STATE_RESTORE;
 
-    printf( "###### ===== ClassA demo application v1.0.0 ==== ######\r\n\r\n" );
+    printf( "###### ===== ClassC demo application v1.0.0 ==== ######\r\n\r\n" );
 
     while( 1 )
-    {
+    {   
         // Process Radio IRQ
         if( Radio.IrqProcess != NULL )
         {
+            printf("IRQ process\r\n");
             Radio.IrqProcess( );
         }
+        printf("LoRaMacProcess\r\n");
         // Processes the LoRaMac events
         LoRaMacProcess( );
 
@@ -1002,6 +964,8 @@ int main( void )
                 else
                 {
 #if( OVER_THE_AIR_ACTIVATION == 0 )
+                    printf("!OTAA\r\n");
+
                     // Tell the MAC layer which network server version are we connecting too.
                     mibReq.Type = MIB_ABP_LORAWAN_VERSION;
                     mibReq.Param.AbpLrWanVersion.Value = ABP_ACTIVATION_LRWAN_VERSION;
@@ -1017,7 +981,6 @@ int main( void )
                     mibReq.Param.AppKey = AppKey;
                     LoRaMacMibSetRequestConfirm( &mibReq );
 #endif
-
                     mibReq.Type = MIB_NWK_KEY;
                     mibReq.Param.NwkKey = NwkKey;
                     LoRaMacMibSetRequestConfirm( &mibReq );
@@ -1040,6 +1003,7 @@ int main( void )
                     LoRaMacMibSetRequestConfirm( &mibReq );
 
 #if( OVER_THE_AIR_ACTIVATION == 0 )
+
                     // Choose a random device address if not already defined in Commissioning.h
                     if( DevAddr == 0 )
                     {
@@ -1073,6 +1037,7 @@ int main( void )
                     mibReq.Type = MIB_APP_S_KEY;
                     mibReq.Param.AppSKey = AppSKey;
                     LoRaMacMibSetRequestConfirm( &mibReq );
+
 #endif
                 }
                 DeviceState = DEVICE_STATE_START;
@@ -1082,12 +1047,6 @@ int main( void )
             case DEVICE_STATE_START:
             {
                 TimerInit( &TxNextPacketTimer, OnTxNextPacketTimerEvent );
-
-                TimerInit( &Led1Timer, OnLed1TimerEvent );
-                TimerSetValue( &Led1Timer, 25 );
-
-                TimerInit( &Led3Timer, OnLed3TimerEvent );
-                TimerSetValue( &Led3Timer, 25 );
 
                 mibReq.Type = MIB_PUBLIC_NETWORK;
                 mibReq.Param.EnablePublicNetwork = LORAWAN_PUBLIC_NETWORK;
@@ -1178,6 +1137,16 @@ int main( void )
             {
                 if( NextTx == true )
                 {
+                    printf("NextTx == true\r\n");
+                    mibReq.Type = MIB_DEVICE_CLASS;
+                    LoRaMacMibGetRequestConfirm( &mibReq );
+
+                    if( mibReq.Param.Class!= CLASS_C )
+                    {
+                        mibReq.Param.Class = CLASS_C;
+                        LoRaMacMibSetRequestConfirm( &mibReq );
+                    }
+
                     PrepareTxFrame( AppPort );
 
                     NextTx = SendFrame( );
@@ -1231,5 +1200,6 @@ int main( void )
                 break;
             }
         }
+    //sleep(1);
     }
 }

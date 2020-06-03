@@ -1,27 +1,4 @@
-/*!
- * \file      main.c
- *
- * \brief     LoRaMac classA device implementation
- *
- * \copyright Revised BSD License, see section \ref LICENSE.
- *
- * \code
- *                ______                              _
- *               / _____)             _              | |
- *              ( (____  _____ ____ _| |_ _____  ____| |__
- *               \____ \| ___ |    (_   _) ___ |/ ___)  _ \
- *               _____) ) ____| | | || |_| ____( (___| | | |
- *              (______/|_____)_|_|_| \__)_____)\____)_| |_|
- *              (C)2013-2017 Semtech
- *
- * \endcode
- *
- * \author    Miguel Luis ( Semtech )
- *
- * \author    Gregory Cristian ( Semtech )
- */
-
-/*! \file classA/B-L072Z-LRWAN1/main.c */
+/*! \file classA/Simul/main.c */
 
 #include <stdio.h>
 #include "utilities.h"
@@ -38,6 +15,8 @@
 #define ACTIVE_REGION LORAMAC_REGION_EU868
 
 #endif
+
+#define OVER_THE_AIR_ACTIVATION 1
 
 /*!
  * Defines the application data transmission duty cycle. 5s, value in [ms].
@@ -149,16 +128,6 @@ static TimerEvent_t TxNextPacketTimer;
  * Specifies the state of the application LED
  */
 static bool AppLedStateOn = false;
-
-/*!
- * Timer to handle the state of LED1
- */
-static TimerEvent_t Led1Timer;
-
-/*!
- * Timer to handle the state of LED3
- */
-static TimerEvent_t Led3Timer;
 
 /*!
  * Indicates if a new packet can be sent
@@ -396,12 +365,18 @@ static void PrepareTxFrame( uint8_t port )
  */
 static bool SendFrame( void )
 {
+    if(++TxConfirmCount == CONFIRM_EVERY) {
+        IsTxConfirmed = true;
+        TxConfirmCount = 0;
+    } else { 
+        IsTxConfirmed = false;
+    }
     McpsReq_t mcpsReq;
     LoRaMacTxInfo_t txInfo;
-    printf("AM I EVEN HERE!!???\r\n");
+    printf("Sending Frame\r\n");
     if( LoRaMacQueryTxPossible( AppDataSize, &txInfo ) != LORAMAC_STATUS_OK )
     {
-        printf("Sending empty frame\r\n");
+        printf("!= LORAMAC_STATUS_OK\r\n");
         // Send empty frame in order to flush MAC commands
         mcpsReq.Type = MCPS_UNCONFIRMED;
         mcpsReq.Req.Unconfirmed.fBuffer = NULL;
@@ -410,9 +385,9 @@ static bool SendFrame( void )
     }
     else
     {
-        if( IsTxConfirmed == false || ++TxConfirmCount != CONFIRM_EVERY)
-        {
-            printf("Always Unconfirmed\r\n");
+        if( IsTxConfirmed == false )
+        {   
+            printf("Sending Unconfirmed Packet\r\n");
             mcpsReq.Type = MCPS_UNCONFIRMED;
             mcpsReq.Req.Unconfirmed.fPort = AppPort;
             mcpsReq.Req.Unconfirmed.fBuffer = AppDataBuffer;
@@ -421,6 +396,7 @@ static bool SendFrame( void )
         }
         else
         {
+            printf("Sending Confirmed Packet\r\n");
             mcpsReq.Type = MCPS_CONFIRMED;
             mcpsReq.Req.Confirmed.fPort = AppPort;
             mcpsReq.Req.Confirmed.fBuffer = AppDataBuffer;
@@ -478,26 +454,6 @@ static void OnTxNextPacketTimerEvent( void* context )
 }
 
 /*!
- * \brief Function executed on Led 1 Timeout event
- */
-static void OnLed1TimerEvent( void* context )
-{
-    TimerStop( &Led1Timer );
-    // Switch LED 1 OFF
-    GpioWrite( &Led1, 0 );
-}
-
-/*!
- * \brief Function executed on Led 3 Timeout event
- */
-static void OnLed3TimerEvent( void* context )
-{
-    TimerStop( &Led3Timer );
-    // Switch LED 3 OFF
-    GpioWrite( &Led3, 0 );
-}
-
-/*!
  * \brief   MCPS-Confirm event function
  *
  * \param   [IN] mcpsConfirm - Pointer to the confirm structure,
@@ -535,10 +491,6 @@ static void McpsConfirm( McpsConfirm_t *mcpsConfirm )
             default:
                 break;
         }
-
-        // Switch LED 1 ON
-        GpioWrite( &Led1, 1 );
-        TimerStart( &Led1Timer );
     }
     MibRequestConfirm_t mibGet;
     MibRequestConfirm_t mibReq;
@@ -670,11 +622,9 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
         {
         case 1: // The application LED can be controlled on port 1 or 2
         case 2:
-            if( mcpsIndication->BufferSize == 1 )
-            {
-                AppLedStateOn = mcpsIndication->Buffer[0] & 0x01;
-                GpioWrite( &Led4, ( ( AppLedStateOn & 0x01 ) != 0 ) ? 1 : 0 );
-            }
+            printf("\r\n\r\nDataRx: ");
+            PrintHexBuffer(mcpsIndication->Buffer, mcpsIndication->BufferSize);
+            printf("\r\nDataRx: ");
             break;
         case 224:
             if( ComplianceTest.Running == false )
@@ -822,10 +772,6 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
         }
     }
 
-    // Switch LED 3 ON for each received downlink
-    GpioWrite( &Led3, 1 );
-    TimerStart( &Led3Timer );
-
     const char *slotStrings[] = { "1", "2", "C", "C Multicast", "B Ping-Slot", "B Multicast Ping-Slot" };
 
     printf( "\r\n###### ===== DOWNLINK FRAME %lu ==== ######\r\n", mcpsIndication->DownLinkCounter );
@@ -834,9 +780,20 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
     
     printf( "RX PORT     : %d\r\n", mcpsIndication->Port );
 
+    if( mcpsIndication->McpsIndication == MCPS_CONFIRMED )
+    {
+        printf( "RX CONFIRMED DATA\r\n" );
+    }
+
     if( mcpsIndication->BufferSize != 0 )
     {
-        printf( "RX DATA     : \r\n" );
+
+        if( mcpsIndication->McpsIndication == MCPS_CONFIRMED ) {
+            printf( "RX CONFIRMED DATA     : " );
+        } else {
+            printf( "RX DATA     : " );
+        }
+        printf("%02hhX ", mcpsIndication->Port);
         PrintHexBuffer( mcpsIndication->Buffer, mcpsIndication->BufferSize );
     }
 
@@ -1083,12 +1040,6 @@ int main( void )
             {
                 TimerInit( &TxNextPacketTimer, OnTxNextPacketTimerEvent );
 
-                TimerInit( &Led1Timer, OnLed1TimerEvent );
-                TimerSetValue( &Led1Timer, 25 );
-
-                TimerInit( &Led3Timer, OnLed3TimerEvent );
-                TimerSetValue( &Led3Timer, 25 );
-
                 mibReq.Type = MIB_PUBLIC_NETWORK;
                 mibReq.Param.EnablePublicNetwork = LORAWAN_PUBLIC_NETWORK;
                 LoRaMacMibSetRequestConfirm( &mibReq );
@@ -1231,5 +1182,6 @@ int main( void )
                 break;
             }
         }
+    sleep(1);
     }
 }

@@ -15,7 +15,9 @@
 ## License:  Revised BSD License, see LICENSE.TXT file included in the project
 ## Authors:  Johannes Bruder (STACKFORCE), Miguel Luis (Semtech)
 ##
+project(LoRaMac)
 cmake_minimum_required(VERSION 3.6)
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}/cmake" CACHE STRING "Modules for CMake" FORCE)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src)
