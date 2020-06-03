@@ -26,6 +26,7 @@
 #include "timer.h"
 #include <stdio.h>
 #include <string.h>
+#include <radio.h>
 
 void poll_timers( void );
 

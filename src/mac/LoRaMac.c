@@ -46,7 +46,6 @@
 #include "LoRaMacSerializer.h"
 
 #include "LoRaMac.h"
-<<<<<<< HEAD
 
 #ifndef LORAMAC_VERSION
 /*!
@@ -3329,8 +3328,8 @@ LoRaMacStatus_t LoRaMacInitialization( LoRaMacPrimitives_t* primitives, LoRaMacC
     InitDefaultsParams_t params;
     params.Type = INIT_TYPE_BANDS;
     params.NvmCtx = NULL;
-    RegionInitDefaults( MacCtx.NvmCtx->Region, &params );
 
+    RegionInitDefaults( MacCtx.NvmCtx->Region, &params );
     ResetMacParameters( );
 
     MacCtx.NvmCtx->PublicNetwork = true;

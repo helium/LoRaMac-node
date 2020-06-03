@@ -19,6 +19,8 @@ project(Simul)
 cmake_minimum_required(VERSION 3.6)
 enable_language(ASM)
 
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -Wall")
+
 #---------------------------------------------------------------------------------------
 # Target
 #---------------------------------------------------------------------------------------

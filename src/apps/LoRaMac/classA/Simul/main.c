@@ -926,7 +926,6 @@ int main( void )
     status = LoRaMacInitialization( &macPrimitives, &macCallbacks, ACTIVE_REGION );
     if ( status != LORAMAC_STATUS_OK )
     {
-        printf( "LoRaMac wasn't properly initialized, error: %s", MacStatusStrings[status] );
         // Fatal error, endless loop.
         while ( 1 )
         {
@@ -935,7 +934,6 @@ int main( void )
 
     DeviceState = DEVICE_STATE_RESTORE;
 
-    printf( "###### ===== ClassA demo application v1.0.0 ==== ######\r\n\r\n" );
 
     while( 1 )
     {
@@ -966,8 +964,8 @@ int main( void )
 #endif
 
 #if( ABP_ACTIVATION_LRWAN_VERSION == ABP_ACTIVATION_LRWAN_VERSION_V10x )
-                    mibReq.Type = MIB_GEN_APP_KEY;
-                    mibReq.Param.GenAppKey = GenAppKey;
+                    mibReq.Type = MIB_APP_KEY;
+                    mibReq.Param.AppKey = GenAppKey;
                     LoRaMacMibSetRequestConfirm( &mibReq );
 #else
                     mibReq.Type = MIB_APP_KEY;
@@ -1121,7 +1119,11 @@ int main( void )
 
                 DeviceState = DEVICE_STATE_SEND;
 #else
+                printf( "###### ===== JoinNetworkStart ==== ######\r\n" );
+
                 JoinNetwork( );
+                printf( "###### ===== JoinNetworkEnd ==== ######\r\n" );
+
 #endif
                 break;
             }
